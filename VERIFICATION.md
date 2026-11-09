@@ -1,3 +1,13 @@
+# Windows 开发环境适配 — 2026-11-09
+
+- Windows 本机 Node 24.14.0、npm 11.9.0，锁定 DSH 0.2.1-alpha.2。
+- build、doctor 通过；功能与环境测试合计 39 项全部通过，无跳过。涵盖 Windows junction、命名管道及 TCP 管理通道认证、模型发送顺序和真实 DSH 插槽契约。停止测试显式等待回调，避免 Windows 管道响应时序造成误判。
+- 真实宿主验证通过：未认证 401、认证交换 303、页面 200、TreeChat enabled/active、管理通道 ping 及受控关闭。
+- 使用独立 profile；保留本机环境配置、凭据及聊天数据。未调用真实模型，未执行本轮浏览器分支端到端验收。
+- 以下 macOS 实测为上游历史结果。
+
+---
+
 # Verification
 
 Target host: DSH 0.2.1-alpha.2, macOS ARM64. TreeChat is a development release.

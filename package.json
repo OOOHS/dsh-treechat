@@ -19,8 +19,12 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",
-    "test": "node --test test/*.test.cjs",
-    "prepack": "npm run build"
+    "test": "node scripts/test.mjs",
+    "prepack": "npm run build",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "verify:runtime": "node scripts/verify-runtime.mjs",
+    "restart": "node scripts/restart-preview.mjs"
   },
   "dsh": {
     "compatibility": {
@@ -55,5 +59,8 @@
   "homepage": "https://github.com/OOOHS/dsh-treechat#readme",
   "bugs": {
     "url": "https://github.com/OOOHS/dsh-treechat/issues"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.1-alpha.2"
   }
 }

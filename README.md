@@ -41,8 +41,7 @@
 ```sh
 git clone https://github.com/OOOHS/dsh-treechat.git
 cd dsh-treechat
-npm run build
-npm test
+npm run setup
 ```
 
 安装到已有 DSH Web profile：
@@ -64,6 +63,24 @@ dsh web
 6. 点击标题右侧的圆圈上箭头（悬停提示“提升为主会话”），在 DSH 主聊天区域打开同一会话并更新标题，同时将它加入原生工作区列表。
 
 主界面的分支使用 DSH 原生右侧面板：宽窗口可并排显示；窄窗口沿用宿主的全屏面板，通过“返回原文”回到主对话。
+
+## 本地开发（Windows / macOS / Linux）
+
+需要 Node.js 22.12 或更新版本，推荐 Node.js 24。`npm run setup` 按锁文件安装 DSH 0.2.1-alpha.2，并完成构建、测试和配置检查。
+
+```sh
+npm run dev
+```
+
+默认端口 3082，数据保存在项目 `.runtime/home`；已有 `.runtime/native-home` 时自动沿用。使用终端输出的完整认证链接进入界面，在设置中连接模型；缺少 API key 也能启动界面。Windows 使用目录 junction，无需创建普通符号链接。
+
+可复制 `.env.example` 为 `.env` 设置端口、数据目录或运行时；进程环境变量优先。启动和重启共用配置，并保留 profile 中已有插件与设置。管理通道默认使用 Windows 命名管道或 Unix socket；可设置 `TREECHAT_CONTROL_TRANSPORT=tcp` 使用带私有令牌的随机回环端口。
+
+- `npm run doctor` 检查环境，不显示密钥。
+- `npm run restart` 通过本项目管理通道重启；凭据缺失时保留现有服务。仅需无模型界面时加 `-- --allow-missing-credentials`。旧版启动器需先在原终端退出一次。
+- `npm run verify:runtime` 启动真实 DSH，验证认证、网页、插件加载和受控关闭，不调用模型；运行前先退出已有开发实例。
+
+`.env`、`.runtime`、凭据、聊天记录与依赖不提交到 Git。迁移浏览器或服务地址前需另行保留浏览器本地分支关系。
 
 ## 上下文规则
 
