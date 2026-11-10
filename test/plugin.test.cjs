@@ -18,19 +18,19 @@ test('browser bundle is lazy and has only the two baseline React imports',()=>{
   assert.ok(plugin.inject.includes('remote.session'), 'Cordis requires the nested remote service to be explicitly injected');
 });
 
-test('registrations satisfy the installed DSH SlotCore contracts', {skip:!process.env.DSH_TEST_ROOT}, async()=>{
+test('registrations satisfy the installed DSH SlotCore contracts', {skip:!process.env.DSH_TEST_ROOT}, async(t)=>{
   const file=path.join(process.env.DSH_TEST_ROOT,'node_modules/@deepseek-ai/dsh-client-ui-slots/lib/index.js');
   const {SlotCore}=await import(pathToFileURL(file));
   const slots=new SlotCore();
   const nothing=()=>null;
   slots.register({name:'root',children:{main:{kind:'keyed',scope:'root'},'sidebar.panellist':{kind:'list',scope:'root'},'conversation.session.header.actions':{kind:'list',scope:'session'},'sidebar.right.pane.tab':{kind:'keyed',scope:'session'}}},nothing);
   let entry;
-  const context={window:{__ModuleLoader__:{load:e=>{entry=e;}},localStorage:{getItem:()=>null}},document:{createElement:()=>({dataset:{},remove(){}}),head:{append(){}}},console};
+  const context={window:{__ModuleLoader__:{load:e=>{entry=e;}},localStorage:{getItem:()=>null}},document:{createElement:()=>({dataset:{},remove(){}}),head:{append(){}}},console,setInterval,clearInterval,AbortSignal,fetch:async()=>{throw new Error('test offline');}};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../lib/client.js'),'utf8'),context);
   const plugin=entry.factory(id=>id==='react'?{createElement(){}}:{createPortal(){}});
   const registrations=[];
   const tabDefinitions=[];
-  plugin.apply({effect:fn=>fn(),sidebarRightTabs:{register:definition=>{tabDefinitions.push(definition);return ()=>{};}},slots:{entries:key=>slots.entries(key),subscribe:(key,fn)=>slots.subscribe(key,fn),inject:(key,fn)=>fn(),register:(opts,component)=>{registrations.push(opts);return slots.register(opts,component);}}});
+  plugin.apply({effect:fn=>{const dispose=fn();if(typeof dispose==='function')t.after(dispose);},sidebarRightTabs:{register:definition=>{tabDefinitions.push(definition);return ()=>{};}},slots:{entries:key=>slots.entries(key),subscribe:(key,fn)=>slots.subscribe(key,fn),inject:(key,fn)=>fn(),register:(opts,component)=>{registrations.push(opts);return slots.register(opts,component);}}});
   assert.ok(!registrations.some(r=>r.name==='main'));
   assert.ok(!registrations.some(r=>r.name==='root'||r.name==='sidebar'||r.name==='conversation.view'));
   assert.equal(registrations.filter(r=>r.name==='sidebar.panellist').length,0);

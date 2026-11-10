@@ -1,6 +1,6 @@
 {
   "name": "dsh-treechat",
-  "version": "0.3.0-dev.8",
+  "version": "0.3.1-dev.1",
   "description": "Branching discussions that grow as a tree inside DeepSeek Harness",
   "type": "module",
   "main": "index.js",
@@ -14,7 +14,9 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "server.mjs",
+    "src/core.cjs"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

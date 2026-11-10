@@ -4,6 +4,7 @@ const { createPortal } = require('react-dom');
 const { useState, useEffect, useRef, useSyncExternalStore, createElement: h } = React;
 const C = require('./core.cjs');
 const Send = require('./send.cjs');
+const Sync = require('./sync.cjs');
 const Sidebar = require('./sidebar.cjs');
 const {layoutTree,zoomCamera,bindMapWheel}=require('./tree.cjs');
 const {shouldSend} = require('./keyboard.cjs');
@@ -100,7 +101,13 @@ function apply(ctx) {
   let storage;
   try { storage = window.localStorage; }
   catch { storage = { getItem() { throw new Error('浏览器不允许本地存储'); }, setItem() { throw new Error('浏览器不允许本地存储'); } }; }
-  const graphStore = C.createGraphStore(storage);
+  const graphStore = Sync.createServerGraphStore(storage,Sync.graphRequest);
+  ctx.effect(()=>{
+    const refresh=()=>graphStore.refresh().catch(()=>{});
+    refresh();const timer=setInterval(refresh,5000);
+    window.addEventListener?.('focus',refresh);
+    return()=>{clearInterval(timer);window.removeEventListener?.('focus',refresh);};
+  });
   const style = document.createElement('style'); style.textContent = TREECHAT_CSS; style.dataset.treechat = 'style';
   ctx.effect(() => { document.head.append(style); return () => style.remove(); });
   const graphHook = () => useSyncExternalStore(graphStore.subscribe, graphStore.getSnapshot, graphStore.getSnapshot);
@@ -141,17 +148,13 @@ function apply(ctx) {
     if (ctx.sidebarRight.mounted.getSnapshot()===owner) ctx.sidebarRight.openTab('treechat');
   }
   async function sendBranchDraft(current,onCreated) {
+    await graphStore.ensureWritable();
     let child=current.createdId;
     const model=current.modelSelection ?? Send.selectedModel(ctx.sessions.binding(current.anchor.sourceSessionId)?.session);
-    if (!child) {
-      graphStore.ensureWritable();
-      child=await ctx.sessions.fork({sessionId:current.anchor.sourceSessionId,atSeq:current.anchor.atSeq,onCreated:id=>{
-        const branch={sessionId:id,parentId:current.anchor.sourceSessionId,anchor:current.anchor,
-          title:current.anchor.exact.trim().replace(/\s+/g,' ').slice(0,60),promoted:false,createdAt:Date.now()};
-        try { graphStore.add(branch); }
-        catch(e){throw new Error(`分支已保存，来源记录保存失败：${errorText(e)}`);}
-        onCreated(id);
-      }});
+    if(!child)child=await ctx.sessions.fork({sessionId:current.anchor.sourceSessionId,atSeq:current.anchor.atSeq,onCreated});
+    if(!graphStore.getSnapshot().branches[child]){
+      await graphStore.add({sessionId:child,parentId:current.anchor.sourceSessionId,anchor:current.anchor,
+        title:current.anchor.exact.trim().replace(/\s+/g,' ').slice(0,60),promoted:false,createdAt:Date.now()});
     }
     await Send.sendFirstMessage(ctx,child,model,C.branchPrompt(current.anchor,current.question));
     return child;
@@ -358,6 +361,7 @@ function apply(ctx) {
     const quotePortal=quoteTarget&&createPortal(h('div',{className:'tc-quoted-message'},h('blockquote',null,quoteTarget.exact),h('div',null,quoteTarget.text)),quoteTarget.element);
     if(observeOnly)return h('span',{ref:root,className:'tc-native-bridge'},
       ownBranch&&h(Button,{className:'tc-native-action',title:ownBranch.anchor.exact,onClick:()=>actions?.jumpTo(ownBranch)},'↖ 来源'),
+      graphStore.error&&h('span',{className:'tc-error',role:'alert'},graphStore.error),
       notice&&h('span',{className:'tc-native-notice',role:'status'},notice,h(Button,{onClick:()=>setNotice(null),'aria-label':'关闭提示'},'×')),
       selectionButton&&createPortal(h('div',{className:'tc-native-surface'},selectionButton),document.body),...markers,quotePortal);
     return h('div', { className:'tc-native-host', ref:root, 'data-treechat-session':sessionId, onPointerUp:selectText, onMouseUp:selectText, onKeyUp:e => { if (e.key==='Shift') selectText(); }, onScrollCapture:() => setSelection(null) },
@@ -425,7 +429,7 @@ function apply(ctx) {
           const binding=await ref.ready,result=await binding.session.rename(branch.title);
           if(!result.ok)throw new Error(result.error?.message||'标题保存失败');
         });
-        graphStore.promote(branch.sessionId);
+        await graphStore.promote(branch.sessionId);
         ctx.uiWorkspace.openSession(branch.sessionId);
       }catch(e){patchNative(owner,{error:errorText(e)});}
       finally{patchNative(owner,{busy:false});}
@@ -436,9 +440,9 @@ function apply(ctx) {
       if(name===branch.title)return true;
       patchNative(owner,{busy:true,error:null});
       try{
-        graphStore.ensureWritable();
+        await graphStore.ensureWritable();
         await ctx.sessions.using(branch.sessionId,{source:'controllerOperation'},async ref=>{const binding=await ref.ready,result=await binding.session.rename(name);if(!result.ok)throw new Error(result.error?.message||'名称保存失败');});
-        graphStore.rename(branch.sessionId,name);return true;
+        await graphStore.rename(branch.sessionId,name);return true;
       }catch(e){patchNative(owner,{error:errorText(e)});return false;}finally{patchNative(owner,{busy:false});}
     };
     const treeButton=h(Button,{className:'tc-icon-button',title:'查看分支树','aria-label':'查看分支树',disabled:view.busy,onClick:()=>patchNative(owner,{treeOpen:true})},h(TreeIcon,{size:18}));
@@ -450,6 +454,7 @@ function apply(ctx) {
     const path=view.sideId?C.lineage(graph,view.sideId):[];
     return h('div',{className:`tc-app tc-native-tab ${view.sideId||draft?'tc-has-branch':''}`,'data-treechat-native-tab':owner},
 
+      graphStore.error&&h('div',{className:'tc-error',role:'alert'},graphStore.error),
       view.error&&h('div',{className:'tc-error',role:'alert'},h('span',null,view.error),h(Button,{onClick:()=>patchNative(owner,{error:null}),'aria-label':'关闭提示'},h(Icon,{name:'close'}))),
       draft?h('section',{className:'tc-pane tc-draft',style:{visibility:view.treeOpen?'hidden':undefined},'aria-label':'创建分支'},
         header('新分支',closeDraft),

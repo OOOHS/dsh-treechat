@@ -26,3 +26,27 @@ Nested return: reproduced native embedded-session scroll restoration overriding 
 Return animation refinement: native restore is allowed to settle briefly before the source scroll begins. All source corrections now use smooth scrolling, with retries spaced apart; instant scroll-position writes were removed from this path. Live nested-return samples showed intermediate positions through the motion, and the final selection remained centered. 29 tests pass.
 
 Breadcrumb navigation now opens the selected ancestor conversation at its latest messages. Live parent-branch and main-conversation breadcrumb navigation both reached bottomGap 0 without source highlighting. The left arrow retained source highlighting and selection centering; the current breadcrumb is noninteractive. Existing 29 tests pass.
+
+
+## Windows 真实模型会话验证 — 2026-11-09
+
+- 通过实际运行 DSH 的认证 RPC 创建独立测试主会话，使用原生 session/prompt、session/fork、session/selectModel；分支首问使用 TreeChat 的 branchPrompt 引用格式。未启用测试模型。
+- deepseek-official / deepseek-flash 实际完成六次回复：主会话首问与追问、子分支首问与追问、孙分支首问与追问；子/孙分支均正确复述继承的共享暗号和背景。
+- 只读核对本次三个会话的落盘日志：在完整 assistant/message 事件边界分叉，子/孙分支首问前显式模型选择与实际请求路由一致。主会话不包含子/孙追问，子分支不包含孙分支消息，子/孙均不包含主会话分叉后新增消息。
+- 当前未提供浏览器操作工具；本轮验证的是原生 RPC 收发与持久历史，不包含 TreeChat 界面选区、侧栏、分支关系 localStorage 或点击流程验收。测试详情保存在被忽略的 .runtime/live-chat-check.json，不提交聊天正文或凭据。
+
+
+## 服务端自动保存与旧树迁移 — 2026-11-09
+
+- TreeChat 0.3.1-dev.1：分支图自动保存到 DSH_HOME/treechat/graph.json，以父/子会话 ID 关联原主会话。服务端采用串行变更、临时文件写入与同步后原子替换；不改写聊天日志。
+- 浏览器启动时自动补入旧 v1 分支图，服务端已有同 ID 记录优先，原浏览器副本保留。保存失败不会显示为成功；自动刷新与聚焦恢复读取，多窗口同分支冲突拒绝覆盖。
+- build、46 项测试、npm pack --dry-run 通过。新增检查覆盖主/子/孙旧树迁移、新浏览器恢复、服务重启、重复迁移、并发不同主会话、同分支过期写入拒绝、失败重试及损坏文件保护。
+- 实际 DSH 认证接口验证通过：无认证 401、跨来源 403、插件 active；用上轮真实测试会话的分支关系模拟旧浏览器记录，迁移后另一认证客户端无本地数据仍恢复；重启服务后修订号及原会话关联保持一致。
+- 未读取用户浏览器存储；真实旧树会在原浏览器刷新加载新版后自动迁移。当前无浏览器操作工具，未做完整选区/点击验收。测试详情及树文件仅保存在被忽略的数据目录。
+
+
+### 现有树刷新恢复确认 — 2026-11-10
+
+- 用户实际刷新当前浏览器后确认树仍在。
+- 只读核对服务端现有树，共 4 条分支关系；新建无本地缓存的客户端再次加载，分支、父子关系、原文锚点完全一致，关联的 5 个会话日志存在，检查前后服务端文件未改变。
+- 上述用户界面确认与接口核对共同补充刷新恢复证据；未逐项读取旧浏览器 localStorage，也未进行完整界面操作回归。
